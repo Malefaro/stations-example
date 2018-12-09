@@ -5,9 +5,9 @@ import stations
 import random
 import strgen
 
-apiKey = 'yandexAPIkeyHere'
+apiKey = 'yandexAPIkey'
 constr = "postgres://{user}:{password}@{host}:5432/{dbname}?sslmode=disable".format(user="user",
-                                                                                      password="user",
+                                                                                      password="password",
                                                                                       host="127.0.0.1",
                                                                                       dbname="stations-example")
 
@@ -84,31 +84,35 @@ def getBestStation(db, plist, userID, L):
         if len(sts) == 0:
             continue
         tname = createTmpTable(db, sts, p)
-        cursor = db.cursor()
-        querystr = """
-        select s.company_id, s.name, s.address, 
-            case u.fuel 
-                when '80' then %(L)s*s.cost80 + u.AvgConsumption/100*d.distance*s.cost80
-                when '92' then %(L)s*s.cost92 + u.AvgConsumption/100*d.distance*s.cost92
-                when '95' then %(L)s*s.cost95 + u.AvgConsumption/100*d.distance*s.cost95
-                when '98' then %(L)s*s.cost98 + u.AvgConsumption/100*d.distance*s.cost98
-            end
-        as cost from stations s 
-        join {distanceTname} d on d.id = s.company_id
-        join users u on u.id = %(userid)s
-        order by cost
-        """.format(distanceTname=tname)
-        cursor.execute(querystr, {'L': L, 'userid':userID})
-        result = cursor.fetchone()
-        if result is not None:
-            if BestStation is not None and result[3] < BestStation[3]:
-                BestStation = result
-            elif BestStation is None:
-                BestStation = result
-        cursor.execute("drop table {tablename}".format(tablename=tname))
-        db.commit()
-        cursor.close()
-    return BestStation
+        try:
+            cursor = db.cursor()
+            querystr = """
+            select s.company_id, s.name, s.address, 
+                case u.fuel 
+                    when '80' then %(L)s*s.cost80 + u.AvgConsumption/100*d.distance*s.cost80
+                    when '92' then %(L)s*s.cost92 + u.AvgConsumption/100*d.distance*s.cost92
+                    when '95' then %(L)s*s.cost95 + u.AvgConsumption/100*d.distance*s.cost95
+                    when '98' then %(L)s*s.cost98 + u.AvgConsumption/100*d.distance*s.cost98
+                end
+            as cost from stations s 
+            join {distanceTname} d on d.id = s.company_id
+            join users u on u.id = %(userid)s
+            order by cost
+            """.format(distanceTname=tname)
+            cursor.execute(querystr, {'L': L, 'userid':userID})
+            result = cursor.fetchone()
+            if result is not None:
+                if BestStation is not None and result[3] < BestStation[3]:
+                    BestStation = result
+                elif BestStation is None:
+                    BestStation = result
+        except:
+            pass
+        finally:
+            cursor.execute("drop table {tablename}".format(tablename=tname))
+            db.commit()
+            cursor.close()
+            return BestStation
 
 
 # Connect к базе
